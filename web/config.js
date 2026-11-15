@@ -3,15 +3,22 @@ const source = document.getElementById("sourceLang");
 const target = document.getElementById("targetLang");
 const deeplApiKey = document.getElementById("deeplApiKey");
 const deeplKeyField = document.getElementById("deeplKeyField");
+const groqApiKey = document.getElementById("groqApiKey");
+const groqModel = document.getElementById("groqModel");
+const groqFields = document.getElementById("groqFields");
 const copyButton = document.getElementById("copyManifest");
 const openStremioWebButton = document.getElementById("openStremioWeb");
 const copyStatus = document.getElementById("copyStatus");
 
 function manifestUrl() {
     const baseUrl = `${location.origin}/configure/${encodeURIComponent(source.value)}/${encodeURIComponent(target.value)}`;
-    if (selectedProvider() !== "deepl") return `${baseUrl}/manifest.json`;
-
-    return `${baseUrl}/deepl/${encodeProviderKey(deeplApiKey.value.trim())}/manifest.json`;
+    if (selectedProvider() === "deepl") {
+        return `${baseUrl}/deepl/${encodeProviderKey(deeplApiKey.value.trim())}/manifest.json`;
+    }
+    if (selectedProvider() === "groq") {
+        return `${baseUrl}/groq/${encodeProviderKey(groqApiKey.value.trim())}/${encodeProviderKey(groqModel.value.trim())}/manifest.json`;
+    }
+    return `${baseUrl}/manifest.json`;
 }
 
 function stremioWebUrl() {
@@ -20,6 +27,7 @@ function stremioWebUrl() {
 
 function updateView() {
     deeplKeyField.hidden = selectedProvider() !== "deepl";
+    groqFields.hidden = selectedProvider() !== "groq";
     copyStatus.textContent = "";
 }
 
@@ -50,6 +58,8 @@ openStremioWebButton.addEventListener("click", () => {
 source.addEventListener("change", updateView);
 target.addEventListener("change", updateView);
 deeplApiKey.addEventListener("input", updateView);
+groqApiKey.addEventListener("input", updateView);
+groqModel.addEventListener("input", updateView);
 document.querySelectorAll("input[name='translationProvider']").forEach((input) => {
     input.addEventListener("change", updateView);
 });
@@ -71,6 +81,10 @@ function validateConfig() {
 
     if (selectedProvider() === "deepl" && !deeplApiKey.value.trim()) {
         copyStatus.textContent = "Enter DeepL API key";
+        return false;
+    }
+    if (selectedProvider() === "groq" && (!groqApiKey.value.trim() || !groqModel.value.trim())) {
+        copyStatus.textContent = "请输入 Groq API Key 和 Model ID";
         return false;
     }
 

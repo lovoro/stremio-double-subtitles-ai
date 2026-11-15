@@ -101,8 +101,8 @@
                         <fieldset class="provider-options">
                             <legend>Translation provider</legend>
                             <p class="field-note">
-                                Google Translate is free and requires no setup. DeepL uses your own API key and is
-                                usually more stable, precise and faster.
+                                Google Translate works without setup. DeepL and Groq use your own API credentials.
+                                Groq lets you choose the model used for subtitle translation.
                             </p>
                             <label class="provider-option">
                                 <input type="radio" name="translationProvider" value="googletrans" checked />
@@ -112,6 +112,10 @@
                                 <input type="radio" name="translationProvider" value="deepl" />
                                 <span>DeepL</span>
                             </label>
+                            <label class="provider-option">
+                                <input type="radio" name="translationProvider" value="groq" />
+                                <span>Groq (自定义大模型)</span>
+                            </label>
                         </fieldset>
                         <label id="deeplKeyField" class="deepl-key-field" hidden>
                             <span>DeepL API key</span>
@@ -119,6 +123,14 @@
                             <a href="https://www.deepl.com/en/your-account/keys" target="_blank" rel="noreferrer">
                                 Get your API key here
                             </a>
+                        </label>
+                        <label id="groqFields" class="deepl-key-field" hidden>
+                            <span>Groq API Key</span>
+                            <input id="groqApiKey" type="password" autocomplete="off" />
+                            <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer">获取 Groq API Key</a>
+                            <span>Model ID（可自定义）</span>
+                            <input id="groqModel" type="text" value="llama-3.3-70b-versatile" autocomplete="off" />
+                            <small>API 地址固定为 https://api.groq.com/openai/v1</small>
                         </label>
                         <button type="submit">Install configured addon</button>
                     </form>
