@@ -108,6 +108,16 @@ function createApp() {
         }
     });
 
+    app.use("/configure/:sourceLang/:targetLang/groq/:groqApiKey/:groqModel", (req, res, next) => {
+        getConfiguredRouter(configuredRouters, {
+            groqApiKey: decodeProviderKey(req.params.groqApiKey),
+            groqModel: decodeProviderKey(req.params.groqModel),
+            sourceLang: req.params.sourceLang,
+            targetLang: req.params.targetLang,
+            translationProvider: "groq",
+        })(req, res, next);
+    });
+
     app.use("/configure/:sourceLang/:targetLang/:translationProvider/:deeplApiKey", (req, res, next) => {
         getConfiguredRouter(configuredRouters, {
             deeplApiKey: decodeProviderKey(req.params.deeplApiKey),

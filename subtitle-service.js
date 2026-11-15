@@ -262,6 +262,8 @@ function createSubtitleOption(args, subtitle, config) {
         id: args.id,
         sourceLanguage: config.stremioSourceLanguage,
         targetLanguage: config.stremioTargetLanguage,
+        translationProvider: translationProvider(config),
+        groqModel: config.groqModel,
         subtitleId: subtitle.id,
         subtitleUrl: subtitle.url,
     });

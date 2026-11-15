@@ -29,7 +29,7 @@ function createAddonInterface(config) {
 
 function createManifest(config) {
     if (!config) return manifest;
-    const provider = config.translationProvider === "deepl" ? "DeepL" : "Google";
+    const provider = config.translationProvider === "deepl" ? "DeepL" : config.translationProvider === "groq" ? `Groq (${config.groqModel || "custom model"})` : "Google";
 
     return {
         ...manifest,
