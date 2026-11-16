@@ -1,6 +1,6 @@
 # Stremio Double Subtitles
 
-Fetches subtitles from the public Stremio OpenSubtitles v3 addon, translates them with `googletrans`, DeepL, or a custom Groq-hosted LLM model, merges them together and serves generated WebVTT subtitles to Stremio. Google Translate remains the default and requires no credentials.
+Fetches subtitles from the public Stremio OpenSubtitles v3 addon, translates them with `googletrans`, DeepL, or any OpenAI-compatible Chat Completions model, merges them together and serves generated WebVTT subtitles to Stremio. Google Translate remains the default and requires no credentials.
 
 ![Screenshot of web interface](img/screenshot.webp "Stremio with double subtitles")
 
@@ -28,16 +28,8 @@ Install it on Stremio using instructions from the web interface.
 
 The generated subtitle is one double subtitle: source language on top, translated language on the bottom.
 
-### Groq / custom LLM
+### Custom AI / OpenAI-compatible API
 
-Select **Groq (自定义大模型)** in the configuration page, enter your Groq API key and the model ID you want to use. The API endpoint is `https://api.groq.com/openai/v1` (Chat Completions). The model ID is configurable, so you can choose any model currently available to your Groq account. Google Translate remains unchanged and is still the default option.
+Choose **Custom AI** and enter the API Base URL, API Key, and Model ID. The addon appends `/chat/completions` automatically (or uses the endpoint as-is if that suffix is already present). Use any service that supports the OpenAI-compatible Chat Completions format. Google Translate and DeepL remain available with their original configuration flows.
 
-You can also configure the server with `GROQ_API_KEY` and `GROQ_MODEL`; the web form's key/model are used when installing a configured addon.
-
-### Docker
-
-```bash
-docker run -p 53100:53100 ghcr.io/awerks/stremio-double-subtitles:latest
-```
-
-then open the local web interface
+Server environment variables are `CUSTOM_AI_BASE_URL`, `CUSTOM_AI_API_KEY`, and `CUSTOM_AI_MODEL`. 
