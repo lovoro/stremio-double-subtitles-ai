@@ -107,7 +107,11 @@ async function getSubtitleOptions(args) {
     }
 }
 
-async function getGeneratedSubtitleResponse(key) {
+async function getGeneratedSubtitleResponse(key, variant = "default") {
+    if (variant === "google" || variant === "ai") {
+        return getCustomAiSubtitleResponse(key, variant);
+    }
+
     const startedAt = process.hrtime.bigint();
     const cachedSubtitle = await getCachedGeneratedSubtitle(key);
     if (cachedSubtitle) {
@@ -138,27 +142,17 @@ async function getGeneratedSubtitleResponse(key) {
         logger.info("generated subtitle build queued", { key });
         recordGeneratedSubtitleCache("miss");
         job.promise = buildTranslatedVtt(job)
+            .then((vtt) => setCachedGeneratedSubtitle(key, vtt).then(() => {
+                if (jobs.get(key) === job) jobs.delete(key);
+                return vtt;
+            }))
             .then((vtt) => {
-                return setCachedGeneratedSubtitle(key, vtt).then(() => {
-                    if (jobs.get(key) === job) {
-                        jobs.delete(key);
-                    }
-                    return vtt;
-                });
-            })
-            .then((vtt) => {
-                logger.info("generated subtitle cached", {
-                    bytes: Buffer.byteLength(vtt, "utf8"),
-                    key,
-                });
+                logger.info("generated subtitle cached", { bytes: Buffer.byteLength(vtt, "utf8"), key });
                 return vtt;
             })
             .catch((error) => {
                 job.promise = null;
-                logger.error("generated subtitle build failed", {
-                    error,
-                    key,
-                });
+                logger.error("generated subtitle build failed", { error, key });
                 throw error;
             });
     } else {
@@ -168,12 +162,7 @@ async function getGeneratedSubtitleResponse(key) {
 
     try {
         const vtt = await job.promise;
-        logGeneratedSubtitleServed({
-            key,
-            source,
-            startedAt,
-            vtt,
-        });
+        logGeneratedSubtitleServed({ key, source, startedAt, vtt });
         return generatedSubtitleResponse(vtt);
     } catch (error) {
         return diagnosticGeneratedSubtitleResponse({
@@ -184,6 +173,153 @@ async function getGeneratedSubtitleResponse(key) {
             startedAt,
         });
     }
+}
+
+async function getCustomAiSubtitleResponse(key, variant) {
+    const startedAt = process.hrtime.bigint();
+    const cacheKey = `${key}:${variant}`;
+    const cachedSubtitle = await getCachedGeneratedSubtitle(cacheKey);
+    if (cachedSubtitle) {
+        logGeneratedSubtitleServed({
+            cacheSource: cachedSubtitle.source,
+            key,
+            source: `${variant}_cache`,
+            startedAt,
+            vtt: cachedSubtitle.vtt,
+        });
+        return generatedSubtitleResponse(cachedSubtitle.vtt);
+    }
+
+    const job = jobs.get(key);
+    if (!job) {
+        return diagnosticGeneratedSubtitleResponse({
+            key,
+            message: "Generated subtitle expired or was not found. Please select the subtitle again.",
+            source: "missing",
+            startedAt,
+        });
+    }
+
+    try {
+        if (variant === "google") {
+            if (!job.googlePromise) {
+                job.googlePromise = buildGoogleVtt(job)
+                    .then(async (vtt) => {
+                        await setCachedGeneratedSubtitle(cacheKey, vtt);
+                        logger.info("Google-first subtitle ready", {
+                            key,
+                            bytes: Buffer.byteLength(vtt, "utf8"),
+                        });
+                        startBackgroundCustomAiTranslation(job);
+                        return vtt;
+                    })
+                    .catch((error) => {
+                        job.googlePromise = null;
+                        throw error;
+                    });
+            }
+            const vtt = await job.googlePromise;
+            logGeneratedSubtitleServed({ key, source: "google_first", startedAt, vtt });
+            return generatedSubtitleResponse(vtt);
+        }
+
+        const vtt = await ensureBackgroundCustomAiTranslation(job);
+        logGeneratedSubtitleServed({ key, source: "custom_ai_ready", startedAt, vtt });
+        return generatedSubtitleResponse(vtt);
+    } catch (error) {
+        return diagnosticGeneratedSubtitleResponse({
+            error,
+            key,
+            message: variant === "google"
+                ? "Could not generate the initial Google subtitles for this video."
+                : "Custom AI subtitles are not available. Please try again later.",
+            source: `${variant}_error`,
+            startedAt,
+        });
+    }
+}
+
+function startBackgroundCustomAiTranslation(job) {
+    if (job.aiPromise) return job.aiPromise;
+    job.aiPromise = buildCustomAiVtt(job)
+        .then(async (vtt) => {
+            await setCachedGeneratedSubtitle(`${job.key}:ai`, vtt);
+            logger.info("background Custom AI subtitle translation finished", {
+                key: job.key,
+                bytes: Buffer.byteLength(vtt, "utf8"),
+            });
+            return vtt;
+        })
+        .catch((error) => {
+            job.aiPromise = null;
+            logger.error("background Custom AI subtitle translation failed", {
+                key: job.key,
+                error,
+            });
+            return null;
+        });
+    return job.aiPromise;
+}
+
+async function ensureBackgroundCustomAiTranslation(job) {
+    const cacheKey = `${job.key}:ai`;
+    const cached = await getCachedGeneratedSubtitle(cacheKey);
+    if (cached) return cached.vtt;
+
+    if (!job.aiPromise) {
+        // If the AI track is selected directly, start translation here as well.
+        startBackgroundCustomAiTranslation(job);
+    }
+    const vtt = await job.aiPromise;
+    if (!vtt) throw new Error("Custom AI background translation failed");
+    return vtt;
+}
+
+async function getJobSourceCues(job) {
+    if (!job.sourceCuesPromise) {
+        job.sourceCuesPromise = (async () => {
+            logger.info("source subtitle download started", {
+                key: job.key,
+                subtitleUrl: job.subtitleUrl,
+            });
+            const subtitleText = await fetchText(job.subtitleUrl);
+            const cues = parseSubtitleCues(subtitleText);
+            if (!cues.length) throw new Error(`No subtitle cues found for ${job.title}`);
+            logger.info("source subtitle parsed", { key: job.key, cueCount: cues.length });
+            return cues;
+        })().catch((error) => {
+            job.sourceCuesPromise = null;
+            throw error;
+        });
+    }
+    return job.sourceCuesPromise;
+}
+
+async function buildGoogleVtt(job) {
+    const config = getSubtitleConfig(job.config);
+    const cues = await getJobSourceCues(job);
+    const googleConfig = { ...config, translationProvider: "googletrans" };
+    const translations = await translateCues(cues, {
+        ...googleConfig,
+        __translationTaskId: `${job.key}:google`,
+    });
+    return composeVtt(cues, translations);
+}
+
+async function buildCustomAiVtt(job) {
+    const config = getSubtitleConfig(job.config);
+    const cues = await getJobSourceCues(job);
+    logger.info("background Custom AI subtitle translation started", {
+        key: job.key,
+        cueCount: cues.length,
+        sourceLanguage: config.sourceLanguage,
+        targetLanguage: config.targetLanguage,
+    });
+    const translations = await translateCues(cues, {
+        ...config,
+        __translationTaskId: job.key,
+    });
+    return composeVtt(cues, translations);
 }
 
 function createSubtitleOptions(args, results, sourceLanguageSubtitles, config) {
@@ -210,9 +346,9 @@ function createSubtitleOptions(args, results, sourceLanguageSubtitles, config) {
     }
 
     return sourceLanguageSubtitles
-        .map((subtitle) => createSubtitleOption(args, subtitle, config))
-        .filter(Boolean)
-        .slice(0, RESULT_LIMIT);
+        .slice(0, RESULT_LIMIT)
+        .flatMap((subtitle) => createSubtitleOption(args, subtitle, config))
+        .filter(Boolean);
 }
 
 function generatedSubtitleResponse(vtt) {
@@ -279,11 +415,29 @@ function createSubtitleOption(args, subtitle, config) {
         });
     }
 
-    return {
+    const baseUrl = getPublicBaseUrl();
+    if (["custom", "groq"].includes(translationProvider(config))) {
+        return [
+            {
+                id: `opensubtitles-v3-${subtitle.id}-google-to-${config.stremioTargetLanguage}`,
+                url: `${baseUrl}/generated-subtitles/${key}/google.vtt`,
+                lang: config.stremioTargetLanguage,
+                label: "Google (Instant)",
+            },
+            {
+                id: `opensubtitles-v3-${subtitle.id}-custom-ai-to-${config.stremioTargetLanguage}`,
+                url: `${baseUrl}/generated-subtitles/${key}/ai.vtt`,
+                lang: config.stremioTargetLanguage,
+                label: "Custom AI (Final)",
+            },
+        ];
+    }
+
+    return [{
         id: `opensubtitles-v3-${subtitle.id}-to-${config.stremioTargetLanguage}`,
-        url: `${getPublicBaseUrl()}/generated-subtitles/${key}.vtt`,
+        url: `${baseUrl}/generated-subtitles/${key}.vtt`,
         lang: config.stremioTargetLanguage,
-    };
+    }];
 }
 
 async function buildTranslatedVtt(job) {
