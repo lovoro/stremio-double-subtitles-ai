@@ -309,7 +309,7 @@ async function buildTranslatedVtt(job) {
         provider: translationProvider(config),
     });
     try {
-        const translations = await translateCues(cues, config);
+        const translations = await translateCues(cues, { ...config, __translationTaskId: job.key });
         const vtt = composeVtt(cues, translations);
         recordSubtitleTranslation({
             bytes: Buffer.byteLength(vtt, "utf8"),
