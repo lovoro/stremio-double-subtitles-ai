@@ -114,7 +114,7 @@
                             </label>
                             <label class="provider-option">
                                 <input type="radio" name="translationProvider" value="custom" />
-                                <span>Custom AI（自定义大模型）</span>
+                                <span>Custom AI (Custom LLM)</span>
                             </label>
                         </fieldset>
                         <label id="deeplKeyField" class="deepl-key-field" hidden>
@@ -126,7 +126,7 @@
                         </label>
                         <div id="customAiFields" class="deepl-key-field" hidden>
                             <label>
-                                <span>API 地址（Base URL）</span>
+                                <span>API Base URL</span>
                                 <input id="customApiBaseUrl" type="url" placeholder="https://api.example.com/v1" autocomplete="url" />
                             </label>
                             <label>
@@ -134,10 +134,10 @@
                                 <input id="customApiKey" type="password" autocomplete="off" />
                             </label>
                             <label>
-                                <span>模型名称（Model ID）</span>
+                                <span>Model ID</span>
                                 <input id="customModel" type="text" placeholder="your-model-name" autocomplete="off" />
                             </label>
-                            <small>填写 OpenAI 兼容接口的 Base URL，程序会自动添加 /chat/completions。适用于支持 OpenAI Chat Completions 格式的服务。</small>
+                            <small>Enter the Base URL of an OpenAI-compatible API. The /chat/completions endpoint is added automatically. Works with services that support the OpenAI Chat Completions format.</small>
                         </div>
                         <button type="submit">Install configured addon</button>
                     </form>
