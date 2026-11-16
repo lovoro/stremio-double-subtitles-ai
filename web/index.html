@@ -101,8 +101,8 @@
                         <fieldset class="provider-options">
                             <legend>Translation provider</legend>
                             <p class="field-note">
-                                Google Translate works without setup. DeepL and Groq use your own API credentials.
-                                Groq lets you choose the model used for subtitle translation.
+                                Google Translate works without setup. DeepL and Custom AI use your own API credentials.
+                                Custom AI supports OpenAI-compatible Chat Completions services.
                             </p>
                             <label class="provider-option">
                                 <input type="radio" name="translationProvider" value="googletrans" checked />
@@ -113,8 +113,8 @@
                                 <span>DeepL</span>
                             </label>
                             <label class="provider-option">
-                                <input type="radio" name="translationProvider" value="groq" />
-                                <span>Groq (自定义大模型)</span>
+                                <input type="radio" name="translationProvider" value="custom" />
+                                <span>Custom AI（自定义大模型）</span>
                             </label>
                         </fieldset>
                         <label id="deeplKeyField" class="deepl-key-field" hidden>
@@ -124,14 +124,21 @@
                                 Get your API key here
                             </a>
                         </label>
-                        <label id="groqFields" class="deepl-key-field" hidden>
-                            <span>Groq API Key</span>
-                            <input id="groqApiKey" type="password" autocomplete="off" />
-                            <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer">获取 Groq API Key</a>
-                            <span>Model ID（可自定义）</span>
-                            <input id="groqModel" type="text" value="llama-3.3-70b-versatile" autocomplete="off" />
-                            <small>API 地址固定为 https://api.groq.com/openai/v1</small>
-                        </label>
+                        <div id="customAiFields" class="deepl-key-field" hidden>
+                            <label>
+                                <span>API 地址（Base URL）</span>
+                                <input id="customApiBaseUrl" type="url" placeholder="https://api.example.com/v1" autocomplete="url" />
+                            </label>
+                            <label>
+                                <span>API Key</span>
+                                <input id="customApiKey" type="password" autocomplete="off" />
+                            </label>
+                            <label>
+                                <span>模型名称（Model ID）</span>
+                                <input id="customModel" type="text" placeholder="your-model-name" autocomplete="off" />
+                            </label>
+                            <small>填写 OpenAI 兼容接口的 Base URL，程序会自动添加 /chat/completions。适用于支持 OpenAI Chat Completions 格式的服务。</small>
+                        </div>
                         <button type="submit">Install configured addon</button>
                     </form>
                     <p class="install-note">
