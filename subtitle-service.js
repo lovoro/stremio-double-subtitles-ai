@@ -311,58 +311,16 @@ async function buildGoogleVtt(job) {
 async function buildCustomAiVtt(job) {
     const config = getSubtitleConfig(job.config);
     const cues = await getJobSourceCues(job);
-    const progressKey = `${job.key}:ai-progress`;
-    const cachedProgress = await getCachedGeneratedSubtitle(progressKey);
-    let initialTranslations = new Array(cues.length).fill("");
-
-    if (cachedProgress) {
-        try {
-            const parsed = JSON.parse(cachedProgress.vtt);
-            if (Array.isArray(parsed) && parsed.length === cues.length) {
-                initialTranslations = parsed.map((value) => String(value || ""));
-            }
-        } catch {
-            logger.warn("background Custom AI progress cache was invalid; starting fresh", {
-                key: job.key,
-            });
-        }
-    }
-
     logger.info("background Custom AI subtitle translation started", {
         key: job.key,
         cueCount: cues.length,
-        alreadyTranslatedCount: initialTranslations.filter(Boolean).length,
         sourceLanguage: config.sourceLanguage,
         targetLanguage: config.targetLanguage,
     });
-
-    // Persist each completed batch so a process restart can resume without
-    // retranslating the cues that have already finished.
-    let progressWrite = Promise.resolve();
-    const translations = await translateCues(
-        cues,
-        {
-            ...config,
-            __translationTaskId: job.key,
-        },
-        {
-            initialTranslations,
-            onBatchComplete: ({ batchNumber, totalBatches, translations: snapshot }) => {
-                progressWrite = progressWrite.then(() =>
-                    setCachedGeneratedSubtitle(progressKey, JSON.stringify(snapshot)),
-                );
-                logger.info("background Custom AI subtitle batch saved", {
-                    key: job.key,
-                    batchNumber,
-                    totalBatches,
-                    translatedCount: snapshot.filter(Boolean).length,
-                    cueCount: cues.length,
-                });
-                return progressWrite;
-            },
-        },
-    );
-    await progressWrite;
+    const translations = await translateCues(cues, {
+        ...config,
+        __translationTaskId: job.key,
+    });
     return composeVtt(cues, translations);
 }
 
