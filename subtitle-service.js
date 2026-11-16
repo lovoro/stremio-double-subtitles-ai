@@ -204,8 +204,10 @@ async function getCustomAiSubtitleResponse(key, variant) {
         if (variant === "google") {
             if (!job.googlePromise) {
                 job.googlePromise = buildGoogleVtt(job)
-                    .then(async (vtt) => {
-                        await setCachedGeneratedSubtitle(cacheKey, vtt);
+                    .then((vtt) => {
+                        // The cache helper updates memory synchronously; Redis persistence
+                        // must not delay delivery of the initial Google subtitle.
+                        void setCachedGeneratedSubtitle(cacheKey, vtt);
                         logger.info("Google-first subtitle ready", {
                             key,
                             bytes: Buffer.byteLength(vtt, "utf8"),
