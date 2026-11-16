@@ -87,14 +87,14 @@ function validateConfig() {
     }
     if (selectedProvider() === "custom") {
         if (!customApiBaseUrl.value.trim() || !customApiKey.value.trim() || !customModel.value.trim()) {
-            copyStatus.textContent = "请填写 API 地址、API Key 和模型名称";
+            copyStatus.textContent = "Please enter the API Base URL, API Key, and Model ID";
             return false;
         }
         try {
             const url = new URL(customApiBaseUrl.value.trim());
             if (!['http:', 'https:'].includes(url.protocol)) throw new Error('invalid protocol');
         } catch {
-            copyStatus.textContent = "请输入有效的 API Base URL（http 或 https）";
+            copyStatus.textContent = "Please enter a valid API Base URL (http or https)";
             return false;
         }
     }
