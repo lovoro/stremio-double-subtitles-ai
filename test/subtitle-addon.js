@@ -36,6 +36,14 @@ describe("live configured subtitle addon", function () {
         assert.match(portugueseManifest.description, /de subtitles with pt-BR translation/);
     });
 
+    it("accepts Nuvio configure suffixes for legacy and custom AI links", async function () {
+        const legacyGroq = await getResponse(`${baseUrl}/configure/en/zh-CN/groq/a2V5/bW9kZWw/configure`);
+        assert.equal(legacyGroq.statusCode, 302);
+
+        const customAi = await getResponse(`${baseUrl}/configure/en/zh-CN/custom/aHR0cHM6Ly9leGFtcGxlLmNvbS92MQ/a2V5/bW9kZWw/configure`);
+        assert.equal(customAi.statusCode, 302);
+    });
+
     it("rate limits repeated requests", async function () {
         const previousMax = process.env.RATE_LIMIT_MAX;
         const previousWindowMs = process.env.RATE_LIMIT_WINDOW_MS;
