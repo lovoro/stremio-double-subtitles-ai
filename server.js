@@ -71,6 +71,12 @@ function createApp() {
     app.get("/configure/:sourceLang/:targetLang/:translationProvider/:deeplApiKey/configure", (req, res) => {
         res.redirect("/");
     });
+    app.get("/configure/:sourceLang/:targetLang/groq/:groqApiKey/:groqModel/configure", (req, res) => {
+        res.redirect("/");
+    });
+    app.get("/configure/:sourceLang/:targetLang/custom/:customApiBaseUrl/:customApiKey/:customModel/configure", (req, res) => {
+        res.redirect("/");
+    });
 
     app.get("/metrics", async (req, res, next) => {
         if (!isMetricsRequestAllowed(req)) {
@@ -106,6 +112,17 @@ function createApp() {
         } catch (error) {
             next(error);
         }
+    });
+
+    app.use("/configure/:sourceLang/:targetLang/custom/:customApiBaseUrl/:customApiKey/:customModel", (req, res, next) => {
+        getConfiguredRouter(configuredRouters, {
+            customApiBaseUrl: decodeProviderKey(req.params.customApiBaseUrl),
+            customApiKey: decodeProviderKey(req.params.customApiKey),
+            customModel: decodeProviderKey(req.params.customModel),
+            sourceLang: req.params.sourceLang,
+            targetLang: req.params.targetLang,
+            translationProvider: "custom",
+        })(req, res, next);
     });
 
     app.use("/configure/:sourceLang/:targetLang/groq/:groqApiKey/:groqModel", (req, res, next) => {
@@ -146,7 +163,7 @@ function createApp() {
         logger.error("request failed", {
             error,
             method: req.method,
-            path: req.path,
+            path: routeLabel(req),
             statusCode: error.statusCode || 500,
         });
         res.status(error.statusCode || 500).json({ error: error.message || "Server error" });
@@ -184,7 +201,7 @@ function logRequest(req, res, next) {
         logger.info("http request", {
             durationMs: durationSeconds * 1000,
             method: req.method,
-            path: req.path,
+            path: route,
             statusCode: res.statusCode,
         });
     });
