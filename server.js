@@ -96,6 +96,15 @@ function createApp() {
         }
     });
 
+    app.get("/generated-subtitles/:key/:variant.vtt", async (req, res, next) => {
+        try {
+            const subtitle = await getGeneratedSubtitleResponse(req.params.key, req.params.variant);
+            res.type("text/vtt").set("Cache-Control", subtitle.cacheControl).send(subtitle.vtt);
+        } catch (error) {
+            next(error);
+        }
+    });
+
     app.get("/generated-subtitles/:key.vtt", async (req, res, next) => {
         try {
             const subtitle = await getGeneratedSubtitleResponse(req.params.key);
