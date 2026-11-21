@@ -421,13 +421,13 @@ function createSubtitleOption(args, subtitle, config) {
     if (["custom", "groq"].includes(translationProvider(config))) {
         return [
             {
-                id: `opensubtitles-v3-${subtitle.id}-google-to-${config.stremioTargetLanguage}`,
+                id: `opensubtitles-v3-${subtitle.id} (Google)`,
                 url: `${baseUrl}/generated-subtitles/${key}/google.vtt`,
                 lang: config.stremioTargetLanguage,
                 label: "Google (Instant)",
             },
             {
-                id: `opensubtitles-v3-${subtitle.id}-custom-ai-to-${config.stremioTargetLanguage}`,
+                id: `opensubtitles-v3-${subtitle.id} (AI)`,
                 url: `${baseUrl}/generated-subtitles/${key}/ai.vtt`,
                 lang: config.stremioTargetLanguage,
                 label: "Custom AI (Final)",
@@ -436,7 +436,7 @@ function createSubtitleOption(args, subtitle, config) {
     }
 
     return [{
-        id: `opensubtitles-v3-${subtitle.id}-to-${config.stremioTargetLanguage}`,
+        id: `opensubtitles-v3-${subtitle.id} (${translationProvider(config) === "deepl" ? "DeepL" : "Google"})`,
         url: `${baseUrl}/generated-subtitles/${key}.vtt`,
         lang: config.stremioTargetLanguage,
     }];
