@@ -51,6 +51,15 @@ function createApp() {
 
         next();
     });
+
+    // Keep health probes independent from API rate limits and translation work.
+    app.get("/healthz", (req, res) => {
+        res.status(200).json({ status: "ok" });
+    });
+    app.get("/health", (req, res) => {
+        res.status(200).json({ status: "ok" });
+    });
+
     app.use(rateLimiters.general);
     app.use(rateLimiters.subtitleWork);
 
