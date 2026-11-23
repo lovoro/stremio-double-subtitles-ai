@@ -15,6 +15,8 @@ const { getDisplayBaseUrl, getListenHost, getTrustProxySetting } = require("./li
 const { createRateLimiters } = require("./lib/rate-limit");
 const { renderConfigPage } = require("./lib/web-page");
 const { getGeneratedSubtitleResponse } = require("./subtitle-service");
+const { getSubtitleConfig } = require("./lib/config");
+const { translateCues } = require("./lib/translator");
 
 const DEFAULT_CONFIGURED_ROUTER_CACHE_MAX = 100;
 const DEFAULT_CONFIGURED_ROUTER_CACHE_TTL_SECONDS = 6 * 60 * 60;
@@ -40,7 +42,7 @@ function createApp() {
     app.use((req, res, next) => {
         res.set("Access-Control-Allow-Origin", "*");
         res.set("Access-Control-Allow-Headers", "*");
-        res.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+        res.set("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
 
         if (req.method === "OPTIONS") {
             res.sendStatus(204);
@@ -95,6 +97,99 @@ function createApp() {
             next(error);
         }
     });
+
+    // Local subtitle translation API. The configured route carries the same
+    // language/provider settings used by the Stremio addon; Nuvio does not need
+    // a separate config lookup request.
+    const translateLocalBatch = (configFromParams) => [
+        express.json({ limit: "128kb" }),
+        async (req, res, next) => {
+            try {
+                const config = getSubtitleConfig(configFromParams(req.params));
+                const subtitles = req.body && req.body.subtitles;
+                if (!Array.isArray(subtitles) || subtitles.length < 1 || subtitles.length > 50) {
+                    res.status(400).json({ error: "subtitles must contain between 1 and 50 cues" });
+                    return;
+                }
+
+                let characterCount = 0;
+                const cues = [];
+                for (const subtitle of subtitles) {
+                    const id = String(subtitle && subtitle.id != null ? subtitle.id : "").trim();
+                    const text = String(subtitle && subtitle.text != null ? subtitle.text : "").trim();
+                    const start = Number(subtitle && subtitle.start);
+                    const end = Number(subtitle && subtitle.end);
+                    if (!id || !text || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start) {
+                        res.status(400).json({ error: "each subtitle requires id, text, valid start and end times" });
+                        return;
+                    }
+                    characterCount += text.length;
+                    if (characterCount > 10000) {
+                        res.status(413).json({ error: "subtitle batch exceeds the 10000-character limit" });
+                        return;
+                    }
+                    cues.push({ start, end, text });
+                }
+
+                const translations = await translateCues(cues, {
+                    ...config,
+                    __translationTaskId: String(req.body.batchId || "local-subtitle-batch").slice(0, 128),
+                });
+                res.json({
+                    success: true,
+                    batchId: req.body.batchId || null,
+                    translations: subtitles.map((subtitle, index) => ({
+                        id: String(subtitle.id),
+                        text: String(translations[index] || ""),
+                    })),
+                });
+            } catch (error) {
+                next(error);
+            }
+        },
+    ];
+
+    app.post(
+        "/configure/:sourceLang/:targetLang/api/v1/translate",
+        ...translateLocalBatch((params) => ({
+            sourceLang: params.sourceLang,
+            targetLang: params.targetLang,
+            translationProvider: "googletrans",
+        })),
+    );
+
+    app.post(
+        "/configure/:sourceLang/:targetLang/:translationProvider/:deeplApiKey/api/v1/translate",
+        ...translateLocalBatch((params) => ({
+            sourceLang: params.sourceLang,
+            targetLang: params.targetLang,
+            translationProvider: params.translationProvider,
+            deeplApiKey: decodeProviderKey(params.deeplApiKey),
+        })),
+    );
+
+    app.post(
+        "/configure/:sourceLang/:targetLang/groq/:groqApiKey/:groqModel/api/v1/translate",
+        ...translateLocalBatch((params) => ({
+            sourceLang: params.sourceLang,
+            targetLang: params.targetLang,
+            translationProvider: "groq",
+            groqApiKey: decodeProviderKey(params.groqApiKey),
+            groqModel: decodeProviderKey(params.groqModel),
+        })),
+    );
+
+    app.post(
+        "/configure/:sourceLang/:targetLang/custom/:customApiBaseUrl/:customApiKey/:customModel/api/v1/translate",
+        ...translateLocalBatch((params) => ({
+            sourceLang: params.sourceLang,
+            targetLang: params.targetLang,
+            translationProvider: "custom",
+            customApiBaseUrl: decodeProviderKey(params.customApiBaseUrl),
+            customApiKey: decodeProviderKey(params.customApiKey),
+            customModel: decodeProviderKey(params.customModel),
+        })),
+    );
 
     app.get("/generated-subtitles/:key/:variant.vtt", async (req, res, next) => {
         try {
