@@ -1,12 +1,45 @@
 const assert = require("assert");
 const { getSubtitleConfig } = require("../lib/config");
-const { translateCues } = require("../lib/translator");
+const { batchLimits, translateCues } = require("../lib/translator");
 
 describe("translator retries", function () {
     const originalFetch = global.fetch;
 
     afterEach(function () {
         global.fetch = originalFetch;
+    });
+
+
+    it("uses the larger bounded batch for Google web translation", function () {
+        const config = getSubtitleConfig({ translationProvider: "googletrans" });
+        assert.deepEqual(batchLimits(config), { chars: 5000, texts: 128 });
+    });
+
+    it("translates repeated subtitle text only once for DeepL", async function () {
+        const config = getSubtitleConfig({
+            deeplApiKey: "secret:fx",
+            sourceLang: "en",
+            targetLang: "fr",
+            translationProvider: "deepl",
+        });
+        let calls = 0;
+        let sentTexts = [];
+        global.fetch = async (_url, options) => {
+            calls += 1;
+            sentTexts = JSON.parse(options.body).text;
+            return {
+                ok: true,
+                async json() {
+                    return { translations: [{ text: "Bonjour" }] };
+                },
+            };
+        };
+
+        const translated = await translateCues([{ text: "Hello" }, { text: "Hello" }], config);
+
+        assert.equal(calls, 1);
+        assert.deepEqual(sentTexts, ["Hello"]);
+        assert.deepEqual(translated, ["Bonjour", "Bonjour"]);
     });
 
     it("retries a failed DeepL batch before succeeding", async function () {
