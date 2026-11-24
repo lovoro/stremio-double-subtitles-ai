@@ -116,8 +116,8 @@ function createApp() {
             try {
                 const config = getSubtitleConfig(configFromParams(req.params));
                 const subtitles = req.body && req.body.subtitles;
-                if (!Array.isArray(subtitles) || subtitles.length < 1 || subtitles.length > 50) {
-                    res.status(400).json({ error: "subtitles must contain between 1 and 50 cues" });
+                if (!Array.isArray(subtitles) || subtitles.length < 1 || subtitles.length > 128) {
+                    res.status(400).json({ error: "subtitles must contain between 1 and 128 cues" });
                     return;
                 }
 
